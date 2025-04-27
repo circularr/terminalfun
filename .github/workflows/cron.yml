@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call /api/cron
+        env:
+          CRON_PSK: ${{ secrets.CRON_PSK }}
         run: |
           curl -X POST "https://terminalfun.vercel.app/api/cron" \
+               -H "Authorization: Bearer $CRON_PSK" \
                --fail --silent --show-error

@@ -1,3 +1,5 @@
+export const runtime = "node";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
@@ -64,8 +66,11 @@ async function* sigWalker(program: string, startSig?: string) {
   }
 }
 
-export const runtime = 'edge';
 export async function POST(req: NextRequest) {
+  if (process.env.CRON_PSK && req.headers.get('authorization') !== `Bearer ${process.env.CRON_PSK}`) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   // Optional: support ?sig=... for single launch debug
   const url = new URL(req.url);
   const testSig = url.searchParams.get('sig');
@@ -73,6 +78,13 @@ export async function POST(req: NextRequest) {
   const raw = await redis.get<unknown>('global');
   const stored = Array.isArray(raw) ? raw : [];
   const existing = new Set<string>(stored);
+
+  // --- PATCH: If only 1 token is tracked, force full backfill by deleting lastSig ---
+  if (existing.size <= 1) {
+    await redis.del('lastSig');
+    console.log('[cron] Only 1 token in global; deleted lastSig to force full backfill.');
+  }
+
   let numNew = 0;
   let checked = 0;
   let mints: string[] = [];
