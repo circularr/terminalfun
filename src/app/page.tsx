@@ -24,13 +24,13 @@ function useTokenMeta(mints: string[]) {
     }
     if (mints.length > 0) load();
     return () => { cancelled = true; };
-  }, [JSON.stringify(mints)]);
+  }, [mints]);
   return meta;
 }
 
 export default function HomePage() {
   const { data, isLoading, error } = useSWR('/api/overview', fetcher, { refreshInterval: 20000 });
-  const tokens = Array.isArray(data)
+  const tokens: { mint: string }[] = Array.isArray(data)
     ? data.map((mint: string) => ({ mint }))
     : (data?.tokens || []);
   const mints = tokens.map(t => t.mint);
@@ -58,7 +58,7 @@ export default function HomePage() {
           {tokens.length === 0 && (
             <tr><td colSpan={8} className="text-center p-4">No tokens tracked yet.</td></tr>
           )}
-          {tokens.map((t: any) => (
+          {tokens.map((t: { mint: string; symbol?: string }) => (
             <tr key={t.mint} className="border-t hover:bg-gray-50">
               <td className="p-2">
                 <Link className="text-blue-600 underline" href={`https://solscan.io/token/${t.mint}`} target="_blank" rel="noopener noreferrer">{t.symbol || t.mint.slice(0, 6)}</Link>

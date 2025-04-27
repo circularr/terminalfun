@@ -1,43 +1,58 @@
 // src/lib/parseAutofun.ts
 
+interface SolanaTx {
+  transaction?: {
+    message?: {
+      instructions?: unknown[];
+      accountKeys?: unknown[];
+    };
+    signatures?: string[];
+  };
+  meta?: unknown;
+  slot?: number;
+}
+
 /**
  * Parse Autofun events from a Solana transaction object (Helius getTransaction result)
  * Returns an array of { mint, slot, signature }
  */
-export function parseAutofunEvents(tx: any) {
+export function parseAutofunEvents(tx: unknown) {
+  const t = tx as SolanaTx;
   const AUTOFUN_ID = 'autoUmixaMaYKFjexMpQuBpNYntgbkzCo2b1ZqUaAZ5';
-  const instructions = tx?.transaction?.message?.instructions || [];
-  const accountKeys = tx?.transaction?.message?.accountKeys || [];
+  const instructions = t.transaction?.message?.instructions ?? [];
+  const accountKeys = t.transaction?.message?.accountKeys ?? [];
   const events = [];
   for (const ix of instructions) {
-    if (ix.programId === AUTOFUN_ID || ix.programId?.toString() === AUTOFUN_ID) {
-      // Find the mint in the instruction's accounts array (by index)
-      // In this tx, accounts[5] is the mint
-      const mintAccountIdx = ix.accounts ? ix.accounts.findIndex(
-        (acctIdx: any) => {
-          // Check if the account matches the mint address from logs
-          const key = typeof acctIdx === 'number' ? accountKeys[acctIdx] : acctIdx;
-          return key?.pubkey === '4F8yEKNdZQ4F6tczn5dDYd7ZgE8qUZaPPNfAjf46vFUN' || key === '4F8yEKNdZQ4F6tczn5dDYd7ZgE8qUZaPPNfAjf46vFUN';
+    if (
+      typeof ix === 'object' && ix !== null &&
+      'programId' in ix &&
+      ((ix as { programId?: unknown }).programId === AUTOFUN_ID ||
+        (typeof (ix as { programId?: unknown }).programId === 'object' &&
+         (ix as { programId?: { toString: () => string } }).programId?.toString() === AUTOFUN_ID))
+    ) {
+      let mint: string | undefined = undefined;
+      // Check for accounts array and accountKeys
+      if ('accounts' in ix && Array.isArray((ix as { accounts?: unknown[] }).accounts) && accountKeys.length > 8) {
+        const key = accountKeys[8];
+        if (typeof key === 'object' && key !== null && 'pubkey' in key && typeof (key as { pubkey?: unknown }).pubkey === 'string') {
+          mint = (key as { pubkey: string }).pubkey;
+        } else if (typeof key === 'string') {
+          mint = key;
         }
-      ) : -1;
-      let mint = undefined;
-      if (mintAccountIdx !== -1 && ix.accounts) {
-        const mintAcct = ix.accounts[mintAccountIdx];
-        mint = typeof mintAcct === 'number' ? accountKeys[mintAcct]?.pubkey || accountKeys[mintAcct] : mintAcct;
-      } else if (accountKeys[8]?.pubkey === '4F8yEKNdZQ4F6tczn5dDYd7ZgE8qUZaPPNfAjf46vFUN' || accountKeys[8] === '4F8yEKNdZQ4F6tczn5dDYd7ZgE8qUZaPPNfAjf46vFUN') {
-        mint = accountKeys[8]?.pubkey || accountKeys[8];
       }
       // fallback: grab the mint from logs if not found
-      if (!mint && tx?.meta?.logMessages) {
-        const mintLog = tx.meta.logMessages.find((msg: string) => msg.startsWith('Program log: Mint: '));
-        if (mintLog) {
+      if (!mint && t.meta && typeof t.meta === 'object' && t.meta !== null && 'logMessages' in t.meta && Array.isArray((t.meta as { logMessages?: unknown[] }).logMessages)) {
+        const mintLog = ((t.meta as { logMessages?: unknown[] }).logMessages ?? []).find(
+          (msg: unknown) => typeof msg === 'string' && msg.startsWith('Program log: Mint: ')
+        );
+        if (typeof mintLog === 'string') {
           mint = mintLog.replace('Program log: Mint: ', '').trim();
         }
       }
       events.push({
         mint,
-        slot: tx.slot,
-        signature: tx.transaction.signatures[0],
+        slot: t.slot,
+        signature: t.transaction?.signatures?.[0],
       });
     }
   }

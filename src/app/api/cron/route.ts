@@ -13,19 +13,29 @@ const LAUNCH_DISCS = new Set([
   'd8027cbbd32ad830'       // NEW – observed in the wild
 ]);
 
-function isAutofunLaunch(ix: any, sig?: string) {
-  if (ix.programId !== AUTOFUN) return false;
-  if (!ix.data) return false;
-  const disc = Buffer.from(ix.data, 'base64').subarray(0, 8).toString('hex');
+function isAutofunLaunch(ix: unknown, sig?: string) {
+  if (
+    typeof ix !== 'object' || ix === null ||
+    !('programId' in ix) ||
+    !('data' in ix) ||
+    !('accounts' in ix)
+  ) return false;
+  if ((ix as { programId: unknown }).programId !== AUTOFUN) return false;
+  if (!(ix as { data: unknown }).data) return false;
+  const disc = Buffer.from((ix as { data: string }).data, 'base64').subarray(0, 8).toString('hex');
   if (!LAUNCH_DISCS.has(disc)) {
-    console.log(`[skip] unknown disc ${disc} for sig ${sig ?? ''}`);
+    if (sig) console.log(`[skip] unknown disc ${disc} for sig ${sig}`);
     return false;
   }
   return true;
 }
 
-function extractMint(ix: any) {
-  // IDL: account 3 always = token mint
+function extractMint(ix: unknown) {
+  if (
+    typeof ix !== 'object' || ix === null ||
+    !('accounts' in ix)
+  ) return undefined;
+  // @ts-expect-error: runtime type checked
   return ix.accounts?.[3];
 }
 
@@ -87,7 +97,7 @@ export async function POST(req: NextRequest) {
 
   let numNew = 0;
   let checked = 0;
-  let mints: string[] = [];
+  const mints: string[] = [];
   if (testSig) {
     // Debug: parse just one transaction
     const tx = await heliusTx(testSig);

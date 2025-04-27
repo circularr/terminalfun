@@ -23,10 +23,19 @@ async function getMintInfo(mint: string) {
   };
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { mint: string } }
-) {
+export async function GET(request: NextRequest, context: unknown) {
+  // Type guard for context and params
+  if (
+    typeof context !== 'object' ||
+    context === null ||
+    !('params' in context) ||
+    typeof (context as { params?: unknown }).params !== 'object' ||
+    (context as { params?: unknown }).params === null ||
+    !('mint' in (context as { params: { mint?: unknown } }).params)
+  ) {
+    return NextResponse.json({ error: 'Invalid params' }, { status: 400 });
+  }
+  const { params } = context as { params: { mint: string } };
   try {
     const meta = await getMintInfo(params.mint);
     return NextResponse.json(meta, {
@@ -35,7 +44,7 @@ export async function GET(
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60',
       },
     });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ mint: params.mint, supply: null, decimals: null }, { status: 500 });
   }
 }

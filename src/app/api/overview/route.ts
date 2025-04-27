@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const UPSTASH_REST_URL = process.env.UPSTASH_REST_URL!;
 const UPSTASH_REST_TOKEN = process.env.UPSTASH_REST_TOKEN!;
