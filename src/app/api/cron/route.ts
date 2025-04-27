@@ -1,4 +1,4 @@
-export const runtime = "node";
+export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
